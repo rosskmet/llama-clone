@@ -26,7 +26,7 @@ class InputBlock():
     def prepareVocab(self):
 
         # Load tiny_shakespeare data file.
-        with open('raw_data/tiny_shakespeare.txt', 'r') as f:
+        with open('../raw_data/tiny_shakespeare.txt', 'r') as f:
             data = f.read()
 
         # Prepare vocabulary by taking all the unique characters from the tiny_shakespeare data
