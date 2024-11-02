@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 import pandas as pd
 from matplotlib import pyplot as plt
+from datetime import datetime
 
 from model import ModelArgs
 import input
@@ -158,12 +159,29 @@ def generate(ib, model, prompts: str, params: ModelArgs, max_gen_len: int=500,
       output_texts.append(ib.decode(toks))
     return output_tokens, output_texts
 
+def finetune(ib, model_name, prompts, dt):
+    dataset = torch.tensor(ib.encode(ib.data), dtype=torch.int).to(ModelArgs.device)
+    print(f"dataset-shape: {dataset.shape}")
 
-def main():
+    model = torch.load(f'../models/{model_name}.pth', map_location='cuda:0')
+    optimizer = torch.optim.Adam(model.parameters())
+
+    train(ib, model, dataset, optimizer, ModelArgs)
+    torch.save(model, f'../models/{dt}model.pth')
+    torch.save(model.state_dict(), f'./models/{dt}model_state_dict.pth')
+
+def gen_response(ib, model_name, prompts):
+    model = torch.load(f'../models/{model_name}.pth')
+
+    output_tokens, output_texts = generate(ib, model, prompts, ModelArgs)
+    output_texts = output_texts[0].replace("<|begin_of_text|>", "")
+    print(output_texts)
+
+def train_new(prompts, ib, vocab_size, dt):
     # prompts = "Hello World"
-    prompts = "Consider you what services he has done"
-    ib = input.InputBlock(prompts)
-    vocab_size = len(ib.vocab)
+    # prompts = "Consider you what services he has done"
+    # ib = input.InputBlock(prompts)
+    # vocab_size = len(ib.vocab)
 
     x = torch.randn((ModelArgs.max_batch_size, ModelArgs.max_seq_len, ModelArgs.dim), device=ModelArgs.device)
     rms_norm = RMSNorm(dim=ModelArgs.dim)
@@ -214,14 +232,32 @@ def main():
     model = Transformer(ModelArgs, vocab_size).to(ModelArgs.device)
     optimizer = torch.optim.Adam(model.parameters())
 
-    # How do I save the model to save compute, maybe finetune?
     train(ib, model, dataset, optimizer, ModelArgs)
+    torch.save(model, f'../models/{dt}model.pth')
+    torch.save(model.state_dict(), f'../models/{dt}model_state_dict.pth')
 
-    output_tokens, output_texts = generate(ib, model, prompts, ModelArgs)
-    output_texts = output_texts[0].replace("<|begin_of_text|>", "")
-    print(output_texts)
+    # output_tokens, output_texts = generate(ib, model, prompts, ModelArgs)
+    # output_texts = output_texts[0].replace("<|begin_of_text|>", "")
+    # print(output_texts)
 
 
 if __name__ == '__main__':
 
-    main()
+    current_time = datetime.datetime.now()
+    current_time = current_time.strftime("%Y-%m-%d_%H.%M.%S")
+
+    mode = 'gen_response'
+    prompts = "Consider you what services he has done"
+    model_name = ''
+
+    ib = input.InputBlock(prompts)
+    vocab_size = len(ib.vocab)
+
+    if mode == 'train_new':
+      train_new(prompts, ib, vocab_size, current_time)
+    elif mode == 'finetune':
+      finetune(ib, model, prompts, dt)
+    elif mode == 'gen_response'
+      gen_response(ib, model, prompts)
+    else:
+      print('No Running Mode Selected')
